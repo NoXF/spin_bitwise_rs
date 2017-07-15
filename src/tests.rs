@@ -3,82 +3,126 @@
 use std::prelude::v1::*;
 
 use std::sync::Arc;
-use super::Mutex;
+use super::RwLock;
+use core::num::dec2flt::rawfp::RawFloat;
 use std::thread::{spawn, JoinHandle, sleep};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+#[allow(unused_variables)]
+fn thread_reader(sleep_initial: Duration, iter_count: u64, lock: Arc<RwLock<i64>>) -> Duration {
+    sleep(sleep_initial);
+    
+    let now = Instant::now();
+    
+    for idx in 0..iter_count {
+        let locked = lock.read();
+    }
+    let locked = lock.read();
+    
+    now.elapsed()
+}
+
+#[allow(unused_variables)]
+fn thread_writer(thread_idx: u64, sleep_initial: Duration, iter_count: u64, lock: Arc<RwLock<i64>>) -> Duration {
+    sleep(sleep_initial);
+    
+    let now = Instant::now();
+    
+    for idx in 0..iter_count {
+        let mut locked = lock.write();
+        
+        if thread_idx % 2 == 0 {
+            *locked += 1
+        } else {
+            *locked -= 1
+        }
+    }
+    
+    let locked = lock.read();
+    
+    now.elapsed()
+}
+
+struct DurationWrapper {
+    duration: Duration
+}
+
+impl Into<f64> for DurationWrapper {
+    fn into(self) -> f64 {
+        (self.duration.as_secs() as f64) + (self.duration.subsec_nanos() as f64 / 1000_000_000.0)
+    }
+}
+
+impl From<Duration> for DurationWrapper {
+    fn from(d: Duration) -> Self {
+        DurationWrapper { duration: d }
+    }
+}
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 fn test_multithreaded(iter_count: u64, sleep_time: u64, log_each: u64, readers: u64, writers: u64) -> (i64, f64) {
     let mut variable: i64 = 0;
-    let mutex = Arc::new(Mutex::new(variable));
-    let mut threads: Vec<JoinHandle<()>> = Vec::new();
+    let lock = Arc::new(RwLock::new(variable));
+    let mut durations: Vec<Duration> = Vec::new();
     
     let ten_millis = Duration::from_millis(sleep_time);
     
-    for idx_loader in 0..readers {
-        let my_mutex = mutex.clone();
-        
-        let thread_loader = spawn(move || {
-            sleep(ten_millis);
-            
-            for idx in 0..iter_count {
-                let locked = my_mutex.lock_reader();
-                
-                if idx == 1 {}
-                
-                if idx % log_each == 0 {}
-            }
-            let locked = my_mutex.lock_reader();
-        });
-        
-        threads.push(thread_loader);
-    }
+    let thread_reader = (0..readers).map(
+        |_| {
+            let my_lock = lock.clone();
+            spawn(move || {
+                thread_reader(ten_millis, iter_count, my_lock)
+            })
+        }
+    );
     
-    for idx_writer in 0..writers {
-        let my_mutex = mutex.clone();
-        
-        let thread_writer = spawn(move || {
-            sleep(ten_millis);
-            for idx in 0..iter_count {
-                let mut locked = my_mutex.lock_writer();
-                
-                if idx == 1 {}
-                
-                if idx % log_each == 0 {}
-                
-                if idx_writer % 2 == 0 {
-                    *locked += 1
-                } else {
-                    *locked -= 1
-                }
-            }
-        });
-        
-        threads.push(thread_writer);
-    }
+    let thread_writer = (0..writers).map(
+        |idx| {
+            let my_lock = lock.clone();
+            spawn(move || {
+                thread_writer(idx, ten_millis, iter_count, my_lock)
+            })
+        }
+    );
     
-    use std::time::Instant;
     let now = Instant::now();
     
-    for thread in threads {
-        match thread.join() {
-            Ok(_) => {}
-            _ => panic!("Cound not help myself")
-        }
-    }
+    let durations_reader: Vec<f64> = thread_reader.map(|d| match d.join() {
+        Ok(x) => DurationWrapper::from(x).into(),
+        _ => panic!("Could not help myself")
+    }).collect();
     
-    let elapsed = now.elapsed();
-    let sec: f64 = (elapsed.as_secs() as f64) + (elapsed.subsec_nanos() as f64 / 1000_000_000.0);
-    let wops_per_sec: f64 = ((writers * iter_count) as f64) / sec;
-    let rops_per_sec: f64 = ((readers * iter_count) as f64) / sec;
-    let locked = mutex.lock_reader();
+    let durations_writer: Vec<f64> = thread_writer.map(|d| match d.join() {
+        Ok(x) => DurationWrapper::from(x).into(),
+        _ => panic!("Could not help myself")
+    }).collect();
+    
+    let writer_max_runtime: f64 = durations_writer.iter().cloned().fold(
+        f64::NAN,
+        f64::max
+    );
+    
+    let reader_max_runtime: f64 = durations_reader.iter().cloned().fold(
+        f64::NAN,
+        f64::max
+    );
+    
+    let wops_per_sec: f64 = (iter_count) as f64 / writer_max_runtime;
+    
+    let rops_per_sec: f64 = (iter_count) as f64 / reader_max_runtime;
+    
+    let locked = lock.read();
     
     let mut locked_value = *locked;
-    let iter_count : i64 = iter_count as i64;
+    let iter_count: i64 = iter_count as i64;
     
-    println!("I={} Readers={} Writers={} Rspd={} WSpd={}", iter_count, readers, writers, rops_per_sec, wops_per_sec);
+    let elapsed: f64 = DurationWrapper::from(now.elapsed()).into();
+    
+    println!(
+        "I={} Readers={} Writers={} Rspd={} WSpd={}, T={}, WmT={}, RmT={}", iter_count,
+        readers, writers, rops_per_sec, wops_per_sec,
+        elapsed, writer_max_runtime, reader_max_runtime);
     
     if writers % 2 == 1 {
         locked_value -= iter_count
@@ -111,6 +155,30 @@ fn test_simple() {
 fn test_15_readers_1_writer() {
     let (counter, ops_per_sec) = test_multithreaded(1000000, 100, 500000, 15, 1);
     let compare = 0.2 * MILLION;
+    assert!(counter == 0, format!("At the end, we must have 0 items left in the counter (ACTUAL: {})", counter));
+    assert!(ops_per_sec > compare, format!("Must be faster than {} (ACTUAL: {})", compare, ops_per_sec));
+}
+
+#[test]
+fn test_1_reader_15_writer() {
+    let (counter, ops_per_sec) = test_multithreaded(1000000, 100, 500000, 1, 15);
+    let compare = 0.2 * MILLION;
+    assert!(counter == 0, format!("At the end, we must have 0 items left in the counter (ACTUAL: {})", counter));
+    assert!(ops_per_sec > compare, format!("Must be faster than {} (ACTUAL: {})", compare, ops_per_sec));
+}
+
+#[test]
+fn test_64_reader_1_writer() {
+    let (counter, ops_per_sec) = test_multithreaded(1000000, 100, 500000, 64, 1);
+    let compare = 0.05 * MILLION;
+    assert!(counter == 0, format!("At the end, we must have 0 items left in the counter (ACTUAL: {})", counter));
+    assert!(ops_per_sec > compare, format!("Must be faster than {} (ACTUAL: {})", compare, ops_per_sec));
+}
+
+#[test]
+fn test_64_reader_64_writer() {
+    let (counter, ops_per_sec) = test_multithreaded(1000000, 100, 500000, 64, 64);
+    let compare = 0.05 * MILLION;
     assert!(counter == 0, format!("At the end, we must have 0 items left in the counter (ACTUAL: {})", counter));
     assert!(ops_per_sec > compare, format!("Must be faster than {} (ACTUAL: {})", compare, ops_per_sec));
 }

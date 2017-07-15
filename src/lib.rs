@@ -7,6 +7,8 @@
 //#![no_std]
 
 //#[cfg(test)]
+#![feature(dec2flt)]
+
 //#[macro_use]
 //extern crate std;
 
@@ -18,9 +20,11 @@ extern crate core;
 extern crate rand;
 extern crate spin;
 
-pub use mutex::*;
-pub use util::*;
-mod mutex;
+pub use rw_lock::*;
+
+mod rw_lock;
 mod util;
+mod helpers;
+mod arch;
 
 mod tests;
