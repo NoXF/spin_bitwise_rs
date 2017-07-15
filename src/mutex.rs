@@ -1,36 +1,40 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use core::cell::UnsafeCell;
 use rand::random;
 use util::cpu_relax;
 use core::ops::{Drop, Deref, DerefMut};
 
-//use std::ops::Shl;
-//use std::ops::BitAnd;
-//use std::ops::AddAssign;;
+#[cfg(all(unix, target_pointer_width = "32"))]
+pub mod arch {
+    pub const READER_COUNT: usize = 15;
+    pub const READER_WAIT_MASK: usize = 0b010101010101010101010101010101;
+    pub const WRITER_IDX: usize = READERS_MAX;
+}
 
-//type LockType = usize;
-const READERS_MAX: usize = 15;
-const WRITER_IDX: usize = READERS_MAX;
-//static MAX_SIZE: usize = 32;
-//const MAX_TRY: u32 = 50000;
+#[cfg(all(unix, target_pointer_width = "64"))]
+pub mod arch {
+    pub const READER_COUNT: usize = 30;
+    pub const READER_WAIT_MASK: usize = 0b010101010101010101010101010101010101010101010101010101010101;
+    pub const WRITER_IDX: usize = READER_COUNT;
+}
+
 
 pub struct Mutex<T: ? Sized>
 {
-    lock: Arc<AtomicUsize>,
+    lock: AtomicUsize,
     data: UnsafeCell<T>,
 }
 
 pub struct ReadMutexGuard<'a, T: ? Sized + 'a>
 {
-    lock: &'a Arc<AtomicUsize>,
+    lock: &'a AtomicUsize,
     data: &'a T,
     idx: usize,
 }
 
 pub struct WriteMutexGuard<'a, T: ? Sized + 'a>
 {
-    lock: &'a Arc<AtomicUsize>,
+    lock: &'a AtomicUsize,
     data: &'a mut T,
     idx: usize,
 }
@@ -42,24 +46,24 @@ unsafe impl<T: ? Sized + Send> Send for Mutex<T> {}
 impl<T> Mutex<T>
 {
     //    #[cfg(feature = "const_fn")]
-    pub fn new(lock: Arc<AtomicUsize>, user_data: T) -> Mutex<T>
+    pub fn new(user_data: T) -> Mutex<T>
     {
         Mutex {
-            lock: lock,
+            lock: AtomicUsize::new(0),
             data: UnsafeCell::new(user_data),
         }
     }
 }
 
-fn atomic_wait(lock: &Arc<AtomicUsize>, idx: usize) -> usize {
+fn atomic_wait(lock: &AtomicUsize, idx: usize) -> usize {
     lock.fetch_or(bitmask_wait(idx), Ordering::SeqCst)
 }
 
-fn atomic_lock(lock: &Arc<AtomicUsize>, idx: usize) -> usize {
+fn atomic_lock(lock: &AtomicUsize, idx: usize) -> usize {
     lock.fetch_or(bitmask_lock(idx) | bitmask_wait(idx), Ordering::SeqCst)
 }
 
-fn atomic_unlock(lock: &Arc<AtomicUsize>, idx: usize) -> usize {
+fn atomic_unlock(lock: &AtomicUsize, idx: usize) -> usize {
     lock.fetch_xor(bitmask_both(idx), Ordering::SeqCst)
 }
 
@@ -91,11 +95,11 @@ impl<T: ? Sized> Mutex<T>
     
     fn get_reader_id(&self) -> usize {
         let r: usize = random();
-        return r % READERS_MAX
+        return r % arch::READER_COUNT;
     }
     
     fn writer_mask(&self) -> usize {
-        return bitmask_both(WRITER_IDX);
+        return bitmask_both(arch::WRITER_IDX);
     }
     
     pub fn obtain_reader_lock(&self) -> usize {
@@ -131,26 +135,26 @@ impl<T: ? Sized> Mutex<T>
     
     pub fn obtain_writer_lock(&self) -> usize {
         loop {
-            let mask = !(self.writer_mask() | 0x15555555);
-            let a = self.set_wait(WRITER_IDX) & mask;
+            let mask = !(self.writer_mask() | arch::READER_WAIT_MASK);
+            let a = self.set_wait(arch::WRITER_IDX) & mask;
             
             // None of the replicas are LOCKED.
             
-            if a & 0xFFFFFFFF == 0 {
+            if a & !(0) == 0 {
                 break;
             }
             
             cpu_relax();
         }
         loop {
-            if self.set_lock(WRITER_IDX) & bitmask_lock(WRITER_IDX) == 0 {
+            if self.set_lock(arch::WRITER_IDX) & bitmask_lock(arch::WRITER_IDX) == 0 {
                 break;
             }
             
             cpu_relax();
         }
         
-        WRITER_IDX
+        arch::WRITER_IDX
     }
     
     pub fn lock_reader(&self) -> ReadMutexGuard<T>
