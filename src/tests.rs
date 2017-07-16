@@ -3,21 +3,22 @@
 use std::prelude::v1::*;
 
 use std::sync::Arc;
+use arch::ARCH;
 use super::RwLock;
 use core::num::dec2flt::rawfp::RawFloat;
 use std::thread::{spawn, sleep, JoinHandle};
 use std::time::{Duration, Instant};
 
 #[allow(unused_variables)]
-fn thread_reader(sleep_initial: Duration, iter_count: u64, lock: Arc<RwLock<i64>>) -> Duration {
+fn thread_reader(thread_idx: u64, sleep_initial: Duration, iter_count: u64, lock: Arc<RwLock<i64>>) -> Duration {
     sleep(sleep_initial);
     
     let now = Instant::now();
     
     for idx in 0..iter_count {
-        let locked = lock.read();
+        let locked = lock.read((thread_idx as usize) % ARCH.reader_cnt);
     }
-    let locked = lock.read();
+    let locked = lock.read((thread_idx as usize) % ARCH.reader_cnt);
     
     now.elapsed()
 }
@@ -38,7 +39,7 @@ fn thread_writer(thread_idx: u64, sleep_initial: Duration, iter_count: u64, lock
         }
     }
     
-    let locked = lock.read();
+    let locked = lock.read((thread_idx as usize) % ARCH.reader_cnt);
     
     now.elapsed()
 }
@@ -69,10 +70,10 @@ fn test_multithreaded(iter_count: u64, sleep_time: u64, log_each: u64, readers: 
     let ten_millis = Duration::from_millis(sleep_time);
     
     let thread_reader : Vec<JoinHandle<_>> = (0..readers).map(
-        |_| {
+        |idx| {
             let my_lock = lock.clone();
             spawn(move || {
-                thread_reader(ten_millis, iter_count, my_lock)
+                thread_reader(idx, ten_millis, iter_count, my_lock)
             })
         }
     ).collect();
@@ -106,7 +107,7 @@ fn test_multithreaded(iter_count: u64, sleep_time: u64, log_each: u64, readers: 
     
     let rops_per_sec: f64 = (iter_count) as f64 / reader_max_runtime;
     
-    let locked = lock.read();
+    let locked = lock.read(0 as usize);
     
     let mut locked_value = *locked;
     let iter_count: i64 = iter_count as i64;
@@ -140,7 +141,7 @@ fn test_many() {
 }
 
 #[test]
-//#[ignore]
+#[ignore]
 fn test_simple() {
     let (counter, ops_per_sec) = test_multithreaded(ITER, 100, 500000, 0, 2);
     let compare = 3. * MILLION;
@@ -149,6 +150,35 @@ fn test_simple() {
 }
 
 #[test]
+//#[ignore]
+fn test_1_readers_0_writer() {
+    let (counter, ops_per_sec) = test_multithreaded(ITER, 100, 500000, 1, 0);
+    let compare = 0.2 * MILLION;
+    assert!(counter == 0, format!("At the end, we must have 0 items left in the counter (ACTUAL: {})", counter));
+    assert!(ops_per_sec > compare, format!("Must be faster than {} (ACTUAL: {})", compare, ops_per_sec));
+}
+
+#[test]
+//#[ignore]
+fn test_0_readers_1_writer() {
+    let (counter, ops_per_sec) = test_multithreaded(ITER*10, 100, 500000, 0, 1);
+    let compare = 0.2 * MILLION;
+    assert!(counter == 0, format!("At the end, we must have 0 items left in the counter (ACTUAL: {})", counter));
+    assert!(ops_per_sec > compare, format!("Must be faster than {} (ACTUAL: {})", compare, ops_per_sec));
+}
+
+
+#[test]
+#[ignore]
+fn test_64_readers_0_writer() {
+    let (counter, ops_per_sec) = test_multithreaded(ITER, 100, 500000, 64, 0);
+    let compare = 0.2 * MILLION;
+    assert!(counter == 0, format!("At the end, we must have 0 items left in the counter (ACTUAL: {})", counter));
+    assert!(ops_per_sec > compare, format!("Must be faster than {} (ACTUAL: {})", compare, ops_per_sec));
+}
+
+#[test]
+#[ignore]
 fn test_15_readers_1_writer() {
     let (counter, ops_per_sec) = test_multithreaded(ITER, 100, 500000, 15, 1);
     let compare = 0.2 * MILLION;
@@ -157,6 +187,7 @@ fn test_15_readers_1_writer() {
 }
 
 #[test]
+#[ignore]
 fn test_1_reader_15_writer() {
     let (counter, ops_per_sec) = test_multithreaded(ITER, 100, 500000, 1, 15);
     let compare = 0.2 * MILLION;
@@ -165,6 +196,7 @@ fn test_1_reader_15_writer() {
 }
 
 #[test]
+#[ignore]
 fn test_64_reader_1_writer() {
     let (counter, ops_per_sec) = test_multithreaded(ITER, 100, 500000, 64, 1);
     let compare = 0.05 * MILLION;
@@ -173,6 +205,7 @@ fn test_64_reader_1_writer() {
 }
 
 #[test]
+#[ignore]
 fn test_64_reader_64_writer() {
     let (counter, ops_per_sec) = test_multithreaded(ITER, 100, 500000, 64, 64);
     let compare = 0.05 * MILLION;

@@ -1,11 +1,12 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread::{current, ThreadId};
 
 use rand::random;
 use arch::ARCH;
 
 type Lock<'a> = &'a AtomicUsize;
 
-const ATOMICITY: Ordering = Ordering::AcqRel;
+const ATOMICITY: Ordering = Ordering::SeqCst;
 
 pub fn atomic_load(lock: Lock) -> usize {
     lock.load(Ordering::Acquire)
@@ -50,6 +51,11 @@ pub const fn bitmask_writer() -> usize {
 pub const fn bitmask_readers_lock() -> usize {
     !(bitmask_writer() | ARCH.reader_lease_mask)
 }
+
+//pub fn random_reader_idx() -> usize {
+//    random
+//    (current().id().0 as usize) % ARCH.reader_cnt
+//}
 
 pub fn random_reader_idx() -> usize {
     let r: usize = random();
