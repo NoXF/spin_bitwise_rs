@@ -35,8 +35,8 @@ unsafe impl<T: ? Sized + Send> Sync for RwLock<T> {}
 unsafe impl<T: ? Sized + Send> Send for RwLock<T> {}
 
 pub struct LockMany<'a, T: ? Sized + 'a> {
-    read: Vec<ReadLockGuard<'a, T>>,
-    write: Vec<WriteLockGuard<'a, T>>,
+    pub read: Vec<ReadLockGuard<'a, T>>,
+    pub write: Vec<WriteLockGuard<'a, T>>,
 }
 
 impl<T> RwLock<T>
@@ -50,32 +50,18 @@ impl<T> RwLock<T>
         }
     }
     
-//    fn readers_lease<'a>(locks: &[&Self]) -> (&'a [(&'a Self, usize)], bool) {
-//        let mut leases = Vec::<(&'a Self, usize, usize)>::with_capacity(locks.len());
-//
-//
-//    }
-    
-//    pub fn read_lease<'a>(read: Vec<&'a Self>) -> (Vec<&'a Self, usize, usize>, bool) {
-//
-//    }
+    pub fn state(&self) -> usize {
+        atomic_load(&self.lock)
+    }
     
     /// Makes sure we obtain all of the reader and writer locks at once.
     /// Spinlocks conflicting elements.
     /// It's your responsibility to ensure that read and write do not intersect
-    pub fn lock_many<'a>(read: Vec<&'a Self>, write: Vec<&'a Self>) -> LockMany<'a, T> {
-        // We need to obtain the leases for writers and readers
-        // We need to obtain the locks for writers and readers
-        
-        // Can we obtain the reader leases first ?
-        
-        
-        // We first obtain all reader leases (means we've got enough capacity for reading).
-        
+    pub fn lock_many<'a>(read: &Vec<&'a Self>, write: &Vec<&'a Self>) -> LockMany<'a, T> {
         let mut read_leases = Vec::<(&'a Self, usize, usize)>::with_capacity(read.len());
         let mut write_leases = Vec::<(&'a Self, usize)>::with_capacity(write.len());
         
-        for i in 0.. {
+        'root: for i in 0.. {
             if i > 0 {
                 {
                     let read_leases = &mut read_leases;
@@ -108,7 +94,7 @@ impl<T> RwLock<T>
                     let (prev_state, block) = atomic_reader_lease(&r.lock, idx);
             
                     if block {
-                        continue
+                        continue 'root
                     } else {
                         (*read_leases).push((r, idx, prev_state));
                     }
@@ -117,7 +103,7 @@ impl<T> RwLock<T>
                 for w in write {
                     let (prev_state, block) = atomic_writer_lease(&w.lock);
                     if block {
-                        continue
+                        continue 'root
                     } else {
                         (*write_leases).push((w, prev_state));
                     }
@@ -130,17 +116,17 @@ impl<T> RwLock<T>
         let mut read_locks = Vec::<(&'a Self, usize, usize)>::with_capacity(read_leases.len());
         let mut write_locks = Vec::<(&'a Self, usize)>::with_capacity(write_leases.len());
 
-        for i in 0.. {
+        'root2: for i in 0.. {
             if i > 0 {
                 {
-                    let read_leases = &mut read_leases;
-                    let write_leases = &mut write_leases;
+                    let read_locks = &mut read_locks;
+                    let write_locks = &mut write_locks;
         
-                    for &mut (r, idx, _) in read_leases {
+                    for &mut (r, idx, _) in read_locks {
                         atomic_reader_unlock(&r.lock, idx);
                     }
         
-                    for &mut (w, _) in write_leases {
+                    for &mut (w, _) in write_locks {
                         atomic_writer_unlock(&w.lock);
                     }
                 }
@@ -150,26 +136,31 @@ impl<T> RwLock<T>
                     (*read_locks).clear();
                     (*write_locks).clear();
                 }
+                // TODO: We may want to increase the wait time here depending on the location.
                 cpu_relax();
             }
             {
                 let read_locks = &mut read_locks;
                 let write_locks = &mut write_locks;
+                let read_leases = &mut read_leases;
+                let write_leases = &mut write_leases;
 
-                for (r, idx, _) in read_leases {
+                for &mut (r, idx, _) in read_leases {
                     let (prev_state, block) = atomic_reader_lock(&r.lock, idx);
 
                     if block {
-                        continue
+                        atomic_reader_unlock(&r.lock, idx);
+                        continue 'root2
                     } else {
                         (*read_locks).push((r, idx, prev_state));
                     }
                 }
 
-                for (w, _) in write_leases {
+                for &mut (w, _) in write_leases {
                     let (prev_state, block) = atomic_writer_lock(&w.lock);
                     if block {
-                        continue
+                        atomic_writer_unlock(&w.lock);
+                        continue 'root2
                     } else {
                         (*write_locks).push((w, prev_state))
                     }
@@ -180,17 +171,14 @@ impl<T> RwLock<T>
         }
         
         LockMany::<'a, T> {
-//            read: Vec::new()
-//            ,
             read: read_locks.iter().map(
                 |args| {
                     let (x, y, _) = *args;
                     x.obtained_read(y)
                 }).collect(),
-//            write: Vec::new()
             write: write_locks.iter().map(
                 |args| {
-                    let (x, y) = *args;
+                    let (x, _) = *args;
                     x.obtained_write(ARCH.reader_cnt)
                 }).collect()
         }
@@ -203,7 +191,7 @@ impl<T: ? Sized> RwLock<T>
         let mut idx = random_reader_idx();
         
         loop {
-            let (mut prev_state, block) = atomic_reader_lease(&self.lock, idx);
+            let (_, block) = atomic_reader_lease(&self.lock, idx);
             if block {
                 idx = random_reader_idx();
                 cpu_relax();
@@ -213,7 +201,7 @@ impl<T: ? Sized> RwLock<T>
         }
         
         loop {
-            let (prev_state, block) = atomic_reader_lock(&self.lock, idx);
+            let (_, block) = atomic_reader_lock(&self.lock, idx);
             if block {
                 atomic_reader_unlock(&self.lock, idx);
                 cpu_relax()
@@ -229,7 +217,7 @@ impl<T: ? Sized> RwLock<T>
         let idx = ARCH.reader_cnt;
         
         loop {
-            let (prev_state, block) = atomic_writer_lease(&self.lock);
+            let (_, block) = atomic_writer_lease(&self.lock);
             if block {
                 cpu_relax();
             } else {
@@ -238,7 +226,7 @@ impl<T: ? Sized> RwLock<T>
         }
         
         loop {
-            let (prev_state, block) = atomic_writer_lock(&self.lock);
+            let (_, block) = atomic_writer_lock(&self.lock);
             
             if block {
                 atomic_writer_unlock(&self.lock);

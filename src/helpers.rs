@@ -5,24 +5,30 @@ use arch::ARCH;
 
 type Lock<'a> = &'a AtomicUsize;
 
+const ATOMICITY: Ordering = Ordering::AcqRel;
+
 pub fn atomic_load(lock: Lock) -> usize {
-    lock.load(Ordering::SeqCst)
+    lock.load(Ordering::Acquire)
 }
 
 pub fn atomic_wait(lock: Lock, idx: usize) -> usize {
-    lock.fetch_or(bitmask_lease(idx), Ordering::SeqCst)
+    lock.fetch_or(bitmask_lease(idx), ATOMICITY)
 }
 
 pub fn atomic_unwait(lock: Lock, idx: usize) -> usize {
-    lock.fetch_xor(bitmask_lease(idx), Ordering::SeqCst)
+    let ret = lock.fetch_xor(bitmask_lease(idx), ATOMICITY);
+    assert!(ret & bitmask_lease(idx) == bitmask_lease(idx), "Can not allow to unlock a previously unlocked value");
+    ret
 }
 
 pub fn atomic_lock(lock: Lock, idx: usize) -> usize {
-    lock.fetch_or(bitmask_lock(idx) | bitmask_lease(idx), Ordering::SeqCst)
+    lock.fetch_or(bitmask_lock(idx) | bitmask_lease(idx), ATOMICITY)
 }
 
 pub fn atomic_unlock(lock: Lock, idx: usize) -> usize {
-    lock.fetch_xor(bitmask_both(idx), Ordering::SeqCst)
+    let ret = lock.fetch_xor(bitmask_both(idx), ATOMICITY);
+    assert!(ret & bitmask_both(idx) == bitmask_both(idx), "Can not allow to unlock a previously unlocked value");
+    ret
 }
 
 pub const fn bitmask_lease(id: usize) -> usize {
@@ -63,8 +69,10 @@ pub fn atomic_reader_lease(lock: Lock, idx: usize) -> (usize, bool) {
     }
 }
 
-pub fn atomic_reader_unlease(lock: Lock, idx: usize) -> (usize, bool)  {
+pub fn atomic_reader_unlease(lock: Lock, idx: usize) -> (usize, bool) {
     let prev_state = atomic_unwait(lock, idx);
+    
+    assert!(prev_state & bitmask_lease(idx) == bitmask_lease(idx), "Must not happen");
     
     (prev_state, false)
 }
@@ -81,7 +89,9 @@ pub fn atomic_reader_lock(lock: Lock, idx: usize) -> (usize, bool) {
 }
 
 pub fn atomic_reader_unlock(lock: Lock, idx: usize) -> (usize, bool) {
-    let prev_state = lock.fetch_xor(bitmask_lock(idx), Ordering::SeqCst);
+    let prev_state = lock.fetch_xor(bitmask_lock(idx), ATOMICITY);
+    
+    assert!(prev_state & bitmask_lock(idx) == bitmask_lock(idx), "Must not happen");
     
     (prev_state, false)
 }

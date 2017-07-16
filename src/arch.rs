@@ -18,6 +18,6 @@ pub const ARCH: Architecture = Architecture {
 
 #[cfg(all(unix, target_pointer_width = "64"))]
 pub const ARCH: Architecture = Architecture {
-    reader_cnt: 30,
-    reader_lease_mask: 0b010101010101010101010101010101010101010101010101010101010101,
+    reader_cnt: 31,
+    reader_lease_mask: 0b01010101010101010101010101010101010101010101010101010101010101,
 };
