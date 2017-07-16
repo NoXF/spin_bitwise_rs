@@ -5,7 +5,7 @@ use std::prelude::v1::*;
 use std::sync::Arc;
 use super::RwLock;
 use core::num::dec2flt::rawfp::RawFloat;
-use std::thread::{spawn, JoinHandle, sleep};
+use std::thread::{spawn, sleep};
 use std::time::{Duration, Instant};
 
 #[allow(unused_variables)]
@@ -161,7 +161,7 @@ fn test_15_readers_1_writer() {
 
 #[test]
 fn test_1_reader_15_writer() {
-    let (counter, ops_per_sec) = test_multithreaded(1000000, 100, 500000, 1, 15);
+    let (counter, ops_per_sec) = test_multithreaded(10000000, 100, 500000, 1, 15);
     let compare = 0.2 * MILLION;
     assert!(counter == 0, format!("At the end, we must have 0 items left in the counter (ACTUAL: {})", counter));
     assert!(ops_per_sec > compare, format!("Must be faster than {} (ACTUAL: {})", compare, ops_per_sec));
