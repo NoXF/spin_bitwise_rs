@@ -10,9 +10,10 @@ On top of this, it implements a mechanism to obtain a set of simultaneous read/w
  - Merge this with [spin](https://github.com/mvdnes/spin-rs)
  - Merge this with [concurrent-hashmap](https://github.com/veddan/rust-concurrent-hashmap/blob/master/benches/concurrent.rs)
  - Create a separate set of tests. Currently all of the test checks are done in benchmarks.
+ - Implement docs.
 
 ## Usage
-See [examples](https://github.com/andreycizov/spin_bitwise_rs/tree/master/examples).
+See [examples](https://github.com/andreycizov/spin_bitwise_rs/tree/master/examples), or for more thorough usage patterns see [benches](https://github.com/andreycizov/spin_bitwise_rs/tree/master/benches).
 
 ### Single example
 
