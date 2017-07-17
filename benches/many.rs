@@ -140,20 +140,20 @@ fn bench_many(b: &mut Bencher, iter_count: u32, threads: u32) {
 
 #[bench]
 fn bench_many_10000_2_threads(b: &mut Bencher) {
-    bench_many(b, 10000, 2);
+    bench_many(b, 1000000, 2);
 }
 
 #[bench]
 fn bench_many_10000_3_threads(b: &mut Bencher) {
-    bench_many(b, 10000, 3);
+    bench_many(b, 1000000, 3);
 }
 
 #[bench]
 fn bench_many_1000_4_threads(b: &mut Bencher) {
-    bench_many(b, 1000, 4);
+    bench_many(b, 1000000, 4);
 }
 
 #[bench]
 fn bench_many_1000_5_threads(b: &mut Bencher) {
-    bench_many(b, 1000, 5);
+    bench_many(b, 1000000, 5);
 }

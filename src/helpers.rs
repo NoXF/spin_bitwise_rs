@@ -6,7 +6,7 @@ use arch::ARCH;
 
 type Lock<'a> = &'a AtomicUsize;
 
-const ATOMICITY: Ordering = Ordering::SeqCst;
+const ATOMICITY: Ordering = Ordering::Relaxed;
 
 pub const fn bitmask_lock(id: usize) -> usize {
     1 << id
