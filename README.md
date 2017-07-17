@@ -138,7 +138,9 @@ cargo bench
 ### Reference
 MB/s here is the number of operations per second.
 
-bench_many implements a ring of N threads each writing to a single key and reading from N-1 keys.
+ -  `bench_many_` implements a ring over `N` keys with `N` threads each writing to a `1` key and reading from the other `N-1` keys. Thus every operation is serialized.
+ -  `bench_read/write` simply reads or writes from the RwLock.
+ -  `bench_` benches a single lock against `R` readers and `W` writers. Operations reported and with writes and reads.
 
 ```bash
 running 0 tests
