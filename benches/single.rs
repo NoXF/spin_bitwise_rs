@@ -93,57 +93,59 @@ fn bench(b: &mut Bencher, iter_count: u64, readers: u64, writers: u64) {
     b.bytes = (iter_count * readers + iter_count * writers) * 1000 * 1000;
 }
 
+const ITER : u64 = 10000;
+
 #[bench]
 fn bench_10_readers_3_writers(b: &mut Bencher) {
-    bench(b, 1000000, 10, 3);
+    bench(b, ITER, 10, 3);
 }
 
 #[bench]
 fn bench_0_readers_2_writers(b: &mut Bencher) {
-    bench(b, 1000000, 0, 2);
+    bench(b, ITER, 0, 2);
 }
 
 #[bench]
 fn bench_1_readers_0_writers(b: &mut Bencher) {
-    bench(b, 1000000, 1, 0);
+    bench(b, ITER, 1, 0);
 }
 
 #[bench]
 fn bench_0_readers_1_writers(b: &mut Bencher) {
-    bench(b, 1000000, 0, 1);
+    bench(b, ITER, 0, 1);
 }
 
 #[bench]
 fn bench_64_readers_0_writers(b: &mut Bencher) {
-    bench(b, 1000000, 64, 0);
+    bench(b, ITER, 64, 0);
 }
 
 #[bench]
 fn bench_15_readers_0_writers(b: &mut Bencher) {
-    bench(b, 1000000, 15, 0);
+    bench(b, ITER, 15, 0);
 }
 
 #[bench]
 fn bench_0_readers_15_writers(b: &mut Bencher) {
-    bench(b, 1000000, 0, 15);
+    bench(b, ITER, 0, 15);
 }
 
 #[bench]
 fn bench_15_readers_1_writers(b: &mut Bencher) {
-    bench(b, 1000000, 15, 1);
+    bench(b, ITER, 15, 1);
 }
 
 #[bench]
 fn bench_1_readers_15_writers(b: &mut Bencher) {
-    bench(b, 1000000, 1, 15);
+    bench(b, ITER, 1, 15);
 }
 
 #[bench]
 fn bench_64_readers_1_writers(b: &mut Bencher) {
-    bench(b, 1000000, 64, 1);
+    bench(b, ITER, 64, 1);
 }
 
 #[bench]
 fn bench_64_readers_64_writers(b: &mut Bencher) {
-    bench(b, 1000000, 64, 64);
+    bench(b, ITER, 64, 64);
 }

@@ -9,7 +9,8 @@ spin="0.4.0"
 
 [features]
 asm = []
+core_intrinsics = []
 const_fn = []
 test = []
-unstable = ["spin/asm", "asm", "const_fn", "test"]
+unstable = ["spin/asm", "core_intrinsics", "asm", "const_fn", "test"]
 default = ["unstable"]

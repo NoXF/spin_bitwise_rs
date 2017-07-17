@@ -21,15 +21,15 @@ pub struct ReadLockGuard<'a, T: ? Sized + 'a>
 {
     lock: &'a AtomicUsize,
     data: &'a T,
-    //    data: &'a UnsafeCell<T>,
-    idx: usize,
+//        data: &'a UnsafeCell<T>,
+    pub idx: usize,
 }
 
 pub struct WriteLockGuard<'a, T: ? Sized + 'a>
 {
     lock: &'a AtomicUsize,
     data: &'a mut T,
-    //    data: &'a UnsafeCell<T>,
+//        data: &'a UnsafeCell<T>,
     idx: usize,
 }
 
@@ -153,37 +153,55 @@ impl<T> RwLock<T>
 
 impl<T: ? Sized> RwLock<T>
 {
+    #[inline(always)]
     fn obtain_reader_lock(&self, idx: usize) -> usize {
         // TODO: check if idx is < ARCH.reader_cnt
         
-        loop {
+        'root: loop {
             let (_, owned, block) = atomic_reader_lock(&self.lock, idx);
-            if owned && block {
-                atomic_reader_unlock(&self.lock, idx);
-                cpu_relax()
-            } else if !owned {
-                cpu_relax()
-            } else {
+            if owned && !block {
                 break
+            } else if owned {
+                loop {
+                    while !atomic_writer_load(&self.lock) {
+                        cpu_relax()
+                    }
+        
+                    let (_, _, block) = atomic_reader_lock(&self.lock, idx);
+        
+                    if !block {
+                        break 'root;
+                    }
+                }
+            } else {
+                while !atomic_reader_load(&self.lock, idx) {
+                    cpu_relax()
+                }
             }
         }
         
         return idx;
     }
     
+    #[inline(always)]
     fn obtain_writer_lock(&self) -> usize {
         let idx = ARCH.reader_cnt;
         
-        loop {
+        'root: loop {
             let (_, owned, block) = atomic_writer_lock(&self.lock);
             
-            if owned && block {
-                atomic_writer_unlock(&self.lock);
-                cpu_relax()
-            } else if !owned {
-                cpu_relax()
-            } else {
+            if owned && !block {
                 break
+            } else if owned {
+                atomic_writer_unlock(&self.lock);
+    
+                while !atomic_readers_load(&self.lock) {
+                    cpu_relax()
+                }
+            } else {
+                while !atomic_writer_load(&self.lock) {
+                    cpu_relax()
+                }
             }
         }
         
@@ -195,7 +213,7 @@ impl<T: ? Sized> RwLock<T>
             idx: idx,
             lock: &self.lock,
             data: unsafe { &mut *self.data.get() },
-            //            data: &self.data,
+//                        data: &self.data,
         }
     }
     
@@ -204,7 +222,7 @@ impl<T: ? Sized> RwLock<T>
             idx: idx,
             lock: &self.lock,
             data: unsafe { &mut *self.data.get() },
-            //            data: &self.data,
+//                        data: &self.data,
         }
     }
     
