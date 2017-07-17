@@ -14,17 +14,22 @@
 
 //#![feature(const_fn)]
 
-
+//! Can we make this automatic ?
 
 extern crate core;
 extern crate rand;
 extern crate spin;
 
+
 pub use rw_lock::*;
+pub use arch::ARCH;
+pub use helpers::random_reader_idx;
 
 mod rw_lock;
 mod util;
 mod helpers;
 mod arch;
 
-mod tests;
+//mod tests;
+//mod tests_many;
+

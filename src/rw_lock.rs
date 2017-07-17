@@ -7,7 +7,10 @@ use util::cpu_relax;
 use helpers::*;
 use arch::ARCH;
 
-
+/// Provides single-writer multiple-reader lock based on a single atomic primitive
+///
+/// # Description
+///
 pub struct RwLock<T: ? Sized>
 {
     lock: AtomicUsize,
@@ -41,6 +44,10 @@ pub struct LockMany<'a, T: ? Sized + 'a> {
 
 impl<T> RwLock<T>
 {
+//    fn state(&self) -> usize {
+//        atomic_load(&self.lock)
+//    }
+    
     //    #[cfg(feature = "const_fn")]
     pub fn new(user_data: T) -> RwLock<T>
     {
@@ -50,14 +57,21 @@ impl<T> RwLock<T>
         }
     }
     
-    pub fn state(&self) -> usize {
-        atomic_load(&self.lock)
-    }
-    
-    /// Makes sure we obtain all of the reader and writer locks at once.
-    /// Spinlocks conflicting elements.
-    /// It's your responsibility to ensure that read and write do not intersect
+    /// Locks all readers and writers at once. It's your responsibility that readers and writers
+    /// do not overlap.
+    ///
+    /// # Arguments
+    ///
+    /// * `reader_idx` - an id for the readers (see examples)
+    /// * `read` - a set of locks to be locked in reading mode
+    /// * `write` - a set of locks to be lock in writing mode
+    ///
+    ///
     pub fn lock_many<'a>(reader_idx: usize, read: &Vec<&'a Self>, write: &Vec<&'a Self>) -> LockMany<'a, T> {
+        // TODO: check if idx is < ARCH.reader_cnt
+        
+        let reader_idx = reader_idx % ARCH.reader_cnt;
+        
         let mut read_leases = Vec::<(&'a Self, usize)>::with_capacity(read.len());
         let mut write_leases = Vec::<(&'a Self, usize)>::with_capacity(write.len());
         
@@ -189,6 +203,8 @@ impl<T> RwLock<T>
 impl<T: ? Sized> RwLock<T>
 {
     fn obtain_reader_lock(&self, idx: usize) -> usize {
+        // TODO: check if idx is < ARCH.reader_cnt
+        
         loop {
             let (_, block) = atomic_reader_lease(&self.lock, idx);
             if block {
@@ -256,11 +272,17 @@ impl<T: ? Sized> RwLock<T>
         }
     }
     
+    /// Obtain the lock in read mode
+    ///
+    /// # Arguments
+    /// * `idx` - reader index
+    ///
     pub fn read(&self, idx: usize) -> ReadLockGuard<T>
     {
         self.obtained_read(self.obtain_reader_lock(idx))
     }
     
+    /// Obtain the lock in write mode
     pub fn write(&self) -> WriteLockGuard<T>
     {
         self.obtained_write(self.obtain_writer_lock())
@@ -294,6 +316,7 @@ macro_rules! define_drop_for {
     ($cls:path) => (
         impl<'a, T: ? Sized> Drop for ($cls)
         {
+            /// Can we, when the initialisation is being done
             fn drop(&mut self)
             {
 //                println!("UNLOCK {}", self.idx);

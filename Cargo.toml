@@ -10,5 +10,6 @@ spin="0.4.0"
 [features]
 asm = []
 const_fn = []
-unstable = ["asm", "const_fn"]
+test = []
+unstable = ["spin/asm", "asm", "const_fn", "test"]
 default = ["unstable"]

@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::thread::{current, ThreadId};
+//use std::thread::{current, ThreadId};
 
 use rand::random;
 use arch::ARCH;
@@ -8,15 +8,15 @@ type Lock<'a> = &'a AtomicUsize;
 
 const ATOMICITY: Ordering = Ordering::SeqCst;
 
-pub fn atomic_load(lock: Lock) -> usize {
-    lock.load(Ordering::Acquire)
-}
+//pub fn atomic_load(lock: Lock) -> usize {
+//    lock.load(Ordering::Acquire)
+//}
 
-pub fn atomic_wait(lock: Lock, idx: usize) -> usize {
+pub fn atomic_lease(lock: Lock, idx: usize) -> usize {
     lock.fetch_or(bitmask_lease(idx), ATOMICITY)
 }
 
-pub fn atomic_unwait(lock: Lock, idx: usize) -> usize {
+pub fn atomic_unlease(lock: Lock, idx: usize) -> usize {
     let ret = lock.fetch_xor(bitmask_lease(idx), ATOMICITY);
     assert!(ret & bitmask_lease(idx) == bitmask_lease(idx), "Can not allow to unlock a previously unlocked value");
     ret
@@ -66,7 +66,7 @@ pub fn random_reader_idx() -> usize {
 /// Returns true if we should retry the call
 /// May force inlining
 pub fn atomic_reader_lease(lock: Lock, idx: usize) -> (usize, bool) {
-    let prev_state = atomic_wait(lock, idx);
+    let prev_state = atomic_lease(lock, idx);
     
     if prev_state & bitmask_lease(idx) == 0 {
         (prev_state, false)
@@ -76,7 +76,7 @@ pub fn atomic_reader_lease(lock: Lock, idx: usize) -> (usize, bool) {
 }
 
 pub fn atomic_reader_unlease(lock: Lock, idx: usize) -> (usize, bool) {
-    let prev_state = atomic_unwait(lock, idx);
+    let prev_state = atomic_unlease(lock, idx);
     
     assert!(prev_state & bitmask_lease(idx) == bitmask_lease(idx), "Must not happen");
     
