@@ -140,7 +140,7 @@ MB/s here is the number of operations per second.
 
 bench_many implements a ring of N threads each writing to a single key and reading from N-1 keys.
 
-```bach
+```bash
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
@@ -148,35 +148,35 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
      Running target/release/deps/many-a2c859d7a0e577ef
 
 running 4 tests
-test bench_many_10000_2_threads ... bench:   8,199,528 ns/iter (+/- 2,731,356) = 2439164 MB/s
-test bench_many_10000_3_threads ... bench:  35,880,556 ns/iter (+/- 6,263,095) = 836107 MB/s
-test bench_many_1000_4_threads  ... bench:  10,495,920 ns/iter (+/- 2,228,472) = 381100 MB/s
-test bench_many_1000_5_threads  ... bench:  28,628,767 ns/iter (+/- 9,165,785) = 174649 MB/s
+test bench_many_10000_2_threads ... bench:   5,478,389 ns/iter (+/- 378,820) = 3650708 MB/s
+test bench_many_10000_3_threads ... bench:  14,711,373 ns/iter (+/- 2,236,510) = 2039238 MB/s
+test bench_many_1000_4_threads  ... bench:   2,930,114 ns/iter (+/- 374,163) = 1365134 MB/s
+test bench_many_1000_5_threads  ... bench:   4,071,063 ns/iter (+/- 427,773) = 1228180 MB/s
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 4 measured; 0 filtered out
 
      Running target/release/deps/simple-18571219f4ce00c8
 
 running 2 tests
-test bench_reads  ... bench:  32,154,069 ns/iter (+/- 2,471,561) = 31100262 MB/s
-test bench_writes ... bench:  32,169,433 ns/iter (+/- 2,630,599) = 31085409 MB/s
+test bench_reads  ... bench:  21,121,984 ns/iter (+/- 2,327,631) = 47344037 MB/s
+test bench_writes ... bench:  21,624,136 ns/iter (+/- 2,246,515) = 46244622 MB/s
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 2 measured; 0 filtered out
 
      Running target/release/deps/single-85405c59528ad9b9
 
 running 11 tests
-test bench_0_readers_15_writers  ... bench:   8,555,199 ns/iter (+/- 683,899) = 1753319 MB/s
-test bench_0_readers_1_writers   ... bench:      62,909 ns/iter (+/- 5,312) = 15895976 MB/s
-test bench_0_readers_2_writers   ... bench:     306,985 ns/iter (+/- 29,220) = 6514976 MB/s
-test bench_10_readers_3_writers  ... bench:   9,047,175 ns/iter (+/- 1,135,258) = 1436912 MB/s
-test bench_15_readers_0_writers  ... bench:   5,992,406 ns/iter (+/- 413,638) = 2503168 MB/s
-test bench_15_readers_1_writers  ... bench:  10,790,247 ns/iter (+/- 3,471,223) = 1482820 MB/s
-test bench_1_readers_0_writers   ... bench:      62,195 ns/iter (+/- 2,961) = 16078462 MB/s
-test bench_1_readers_15_writers  ... bench:   9,174,916 ns/iter (+/- 596,865) = 1743885 MB/s
-test bench_64_readers_0_writers  ... bench:  26,005,571 ns/iter (+/- 9,962,379) = 2461011 MB/s
-test bench_64_readers_1_writers  ... bench:  27,904,309 ns/iter (+/- 44,883,964) = 2329389 MB/s
-test bench_64_readers_64_writers ... bench: 208,857,586 ns/iter (+/- 303,913,121) = 612857 MB/s
+test bench_0_readers_15_writers  ... bench:   5,339,556 ns/iter (+/- 1,354,088) = 2809222 MB/s
+test bench_0_readers_1_writers   ... bench:      52,969 ns/iter (+/- 2,217) = 18878966 MB/s
+test bench_0_readers_2_writers   ... bench:     210,795 ns/iter (+/- 18,109) = 9487891 MB/s
+test bench_10_readers_3_writers  ... bench:   7,119,932 ns/iter (+/- 3,038,918) = 1825860 MB/s
+test bench_15_readers_0_writers  ... bench:   2,855,392 ns/iter (+/- 1,170,957) = 5253219 MB/s
+test bench_15_readers_1_writers  ... bench:   7,131,126 ns/iter (+/- 2,397,169) = 2243684 MB/s
+test bench_1_readers_0_writers   ... bench:      52,919 ns/iter (+/- 2,458) = 18896804 MB/s
+test bench_1_readers_15_writers  ... bench:   9,386,743 ns/iter (+/- 2,179,319) = 1704531 MB/s
+test bench_64_readers_0_writers  ... bench:  16,515,874 ns/iter (+/- 2,549,464) = 3875059 MB/s
+test bench_64_readers_1_writers  ... bench:  18,174,800 ns/iter (+/- 34,026,953) = 3576380 MB/s
+test bench_64_readers_64_writers ... bench: 184,001,578 ns/iter (+/- 673,252,095) = 695646 MB/s
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 11 measured; 0 filtered out
 ```

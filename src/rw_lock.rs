@@ -96,7 +96,12 @@ impl<T> RwLock<T>
                     (*write_locks).clear();
                 }
                 // TODO: We may want to increase the wait time here depending on the location.
-                cpu_relax();
+                
+                // TODO: this is a very picky one. 2-thread programs may sync quite well
+                // TODO: and reduce the performance by 10-x.
+                for y in 0..((read.len() + write.len()) * (reader_idx) * 10) {
+                    cpu_relax();
+                }
             }
             {
                 let read_locks = &mut read_locks;
