@@ -1,7 +1,7 @@
-spin_bitwise_rs
+spin_bitwise
 ===========
 
-This Rust library implements a multiple-reader single-writer spinlock based on a single atomic construct.
+This Rust library implements a multiple-reader single-writer spinlock ([readers-writer lock](https://en.wikipedia.org/wiki/Readers–writer_lock)) based on a single atomic construct.
 
 On top of this, it implements a mechanism to obtain a set of simultaneous read/write locks in a all-or-none fashion.
 
@@ -124,6 +124,8 @@ Key 5 Value=0
 Based on the target platform, we are using a single atomic construct to allow us to have `(bit/2)-1` read locks and a `1` lock at the same time.
 
 For example, for a 64-bit platform we are allowed to have `31` simultaneous readers and `1` writer.
+
+We use an atomic xor and atomic or-get
 
 ## Benchmarks
 ### Run them yourself
