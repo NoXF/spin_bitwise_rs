@@ -122,11 +122,11 @@ Key 5 Value=0
 
 ## Implementation
 
-Based on the target platform, we are using a single atomic construct to allow us to have `(bit/2)-1` read locks and a `1` lock at the same time.
+Based on the target platform, we are using a single atomic construct to allow us to have `bit-1` read locks and a `1` write lock at the same time.
 
-For example, for a 64-bit platform we are allowed to have `31` simultaneous readers and `1` writer.
+For example, for a 64-bit platform we are allowed to have `63` simultaneous readers and `1` writer.
 
-We use an atomic xor and atomic or-get
+We use an atomic xor and atomic or-get.
 
 ## Benchmarks
 ### Run them yourself
