@@ -81,16 +81,12 @@ pub fn atomic_writer_free(lock: Lock) -> bool {
 
 #[inline(always)]
 pub fn atomic_writer_lock(lock: Lock) -> (usize, bool, bool) {
-    match lock.compare_exchange(0, bitmask_lock(ARCH.reader_cnt), Ordering::SeqCst, Ordering::Relaxed)  {
-        Ok(_) => (0, true, false),
-        Err(x) => (x, false, true),
+    let prev_state = lock.compare_and_swap(0, bitmask_lock(ARCH.reader_cnt), Ordering::Acquire);
+    if prev_state == 0 {
+        (0, true, false)
+    } else {
+        (prev_state, false, true)
     }
-    
-//    let prev_state = atomic_lock(lock, ARCH.reader_cnt);
-//    let owned = prev_state & bitmask_lock(ARCH.reader_cnt) == 0;
-//    let block = prev_state & bitmask_readers_lock() != 0;
-//
-//    (prev_state, owned, block)
 }
 
 #[inline(always)]

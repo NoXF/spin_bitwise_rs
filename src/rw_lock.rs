@@ -153,14 +153,11 @@ impl<T: ? Sized> RwLock<T>
         'root: loop {
             let (_, owned, block) = atomic_reader_lock(&self.lock, idx);
             if owned && !block {
+                cpu_relax();
                 break
             } else if owned {
-                // Writer is either locked or is in spinlock.
-                while !atomic_writer_free(&self.lock) {
-                    cpu_relax()
-                }
-                
-                break;
+                atomic_reader_unlock(&self.lock, idx);
+                cpu_relax();
             } else {
                 cpu_relax();
             }
