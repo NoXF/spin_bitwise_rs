@@ -116,7 +116,7 @@ impl<T> RwLock<T>
                 for w in write {
                     let (_, owned, block) = atomic_writer_lock(&w.lock);
                     if block {
-                        atomic_writer_unlock(&w.lock);
+//                        atomic_writer_unlock(&w.lock);
                         continue 'root;
                     } else if !owned {
                         continue 'root
@@ -177,11 +177,7 @@ impl<T: ? Sized> RwLock<T>
             let (_, owned, block) = atomic_writer_lock(&self.lock);
             
             if owned && !block {
-                break
-            } else if owned {
-                atomic_writer_unlock(&self.lock);
-    
-                cpu_relax();
+                break;
             } else {
                 cpu_relax();
             }
