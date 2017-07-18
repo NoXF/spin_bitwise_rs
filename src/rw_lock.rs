@@ -21,7 +21,6 @@ pub struct ReadLockGuard<'a, T: ? Sized + 'a>
 {
     lock: &'a AtomicUsize,
     data: &'a T,
-//        data: &'a UnsafeCell<T>,
     pub idx: usize,
 }
 
@@ -29,7 +28,6 @@ pub struct WriteLockGuard<'a, T: ? Sized + 'a>
 {
     lock: &'a AtomicUsize,
     data: &'a mut T,
-//        data: &'a UnsafeCell<T>,
     idx: usize,
 }
 
@@ -44,11 +42,6 @@ pub struct LockMany<'a, T: ? Sized + 'a> {
 
 impl<T> RwLock<T>
 {
-    //    fn state(&self) -> usize {
-    //        atomic_load(&self.lock)
-    //    }
-    
-    //    #[cfg(feature = "const_fn")]
     pub fn new(user_data: T) -> RwLock<T>
     {
         RwLock {
@@ -162,21 +155,14 @@ impl<T: ? Sized> RwLock<T>
             if owned && !block {
                 break
             } else if owned {
-                loop {
-                    while !atomic_writer_load(&self.lock) {
-                        cpu_relax()
-                    }
-        
-                    let (_, _, block) = atomic_reader_lock(&self.lock, idx);
-        
-                    if !block {
-                        break 'root;
-                    }
-                }
-            } else {
-                while !atomic_reader_load(&self.lock, idx) {
+                // Writer is either locked or is in spinlock.
+                while !atomic_writer_free(&self.lock) {
                     cpu_relax()
                 }
+                
+                break;
+            } else {
+                cpu_relax();
             }
         }
         
@@ -195,13 +181,9 @@ impl<T: ? Sized> RwLock<T>
             } else if owned {
                 atomic_writer_unlock(&self.lock);
     
-                while !atomic_readers_load(&self.lock) {
-                    cpu_relax()
-                }
+                cpu_relax();
             } else {
-                while !atomic_writer_load(&self.lock) {
-                    cpu_relax()
-                }
+                cpu_relax();
             }
         }
         
@@ -213,7 +195,7 @@ impl<T: ? Sized> RwLock<T>
             idx: idx,
             lock: &self.lock,
             data: unsafe { &mut *self.data.get() },
-//                        data: &self.data,
+            //                        data: &self.data,
         }
     }
     
@@ -222,7 +204,7 @@ impl<T: ? Sized> RwLock<T>
             idx: idx,
             lock: &self.lock,
             data: unsafe { &mut *self.data.get() },
-//                        data: &self.data,
+            //                        data: &self.data,
         }
     }
     
@@ -249,7 +231,6 @@ macro_rules! define_deref_for {
         {
             type Target = T;
             fn deref<'b>(&'b self) -> &'b T { &*self.data }
-//            fn deref<'b>(&'b self) -> &'b T { &*unsafe { &mut *(*self.data).get() } }
         }
     )
 }
@@ -260,7 +241,6 @@ macro_rules! define_deref_mut_for {
         {
             fn deref_mut<'b>(&'b mut self) -> &'b mut T {
                 &mut *self.data
-//                 &mut *unsafe { &mut *(*self.data).get() }
             }
         }
     )
@@ -273,7 +253,6 @@ macro_rules! define_drop_for {
             /// Can we, when the initialisation is being done
             fn drop(&mut self)
             {
-//                println!("UNLOCK {}", self.idx);
                 atomic_unlock(self.lock, self.idx);
             }
         }
@@ -285,31 +264,3 @@ define_deref_for!(WriteLockGuard<'a, T>);
 define_deref_mut_for!(WriteLockGuard<'a, T>);
 define_drop_for!(ReadLockGuard<'a, T>);
 define_drop_for!(WriteLockGuard<'a, T>);
-
-//impl<'a, T> Clone for ReadLockGuard<'a, T> {
-//    fn clone(&self) -> Self {
-//        ReadLockGuard {
-//            lock: self.lock,
-//            data: self.data,
-//            idx: self.idx
-//        }
-//    }
-//
-//    fn clone_from(&mut self, source: &Self) {
-//        *self = source.clone()
-//    }
-//}
-//
-//impl<'a, T> Clone for WriteLockGuard<'a, T> {
-//    fn clone(&self) -> Self {
-//        WriteLockGuard {
-//            lock: self.lock,
-//            data: self.data,
-//            idx: self.idx
-//        }
-//    }
-//
-//    fn clone_from(&mut self, source: &Self) {
-//        *self = source.clone()
-//    }
-//}

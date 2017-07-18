@@ -65,7 +65,7 @@ pub fn atomic_reader_unlock(lock: Lock, idx: usize) -> (usize, bool) {
 }
 
 #[inline(always)]
-pub fn atomic_readers_load(lock: Lock) -> bool {
+pub fn atomic_readers_free(lock: Lock) -> bool {
     atomic_load(lock) & bitmask_readers_lock() == 0
 }
 
@@ -75,7 +75,7 @@ pub fn atomic_reader_load(lock: Lock, idx: usize) -> bool {
 }
 
 #[inline(always)]
-pub fn atomic_writer_load(lock: Lock) -> bool {
+pub fn atomic_writer_free(lock: Lock) -> bool {
     atomic_load(lock) & bitmask_lock(ARCH.reader_cnt) == 0
 }
 
