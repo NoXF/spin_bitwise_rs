@@ -111,21 +111,25 @@ fn bench_many(b: &mut Bencher, iter_count: u32, threads: u32) {
 }
 
 #[bench]
+#[ignore]
 fn bench_many_10000_2_threads(b: &mut Bencher) {
     bench_many(b, ITER, 2);
 }
 
 #[bench]
+#[ignore]
 fn bench_many_10000_3_threads(b: &mut Bencher) {
     bench_many(b, ITER, 3);
 }
 
 #[bench]
+#[ignore]
 fn bench_many_1000_4_threads(b: &mut Bencher) {
     bench_many(b, ITER, 4);
 }
 
 #[bench]
+#[ignore]
 fn bench_many_1000_5_threads(b: &mut Bencher) {
     bench_many(b, ITER, 5);
 }

@@ -6,9 +6,9 @@ use arch::ARCH;
 
 type Lock<'a> = &'a AtomicUsize;
 
-const ATOMICITY_LOAD: Ordering = Ordering::Relaxed;
-const ATOMICITY_LOCK: Ordering = Ordering::Relaxed;
-const ATOMICITY_RELEASE: Ordering = Ordering::Release;
+pub const ATOMICITY_LOAD: Ordering = Ordering::Relaxed;
+pub const ATOMICITY_LOCK: Ordering = Ordering::Acquire;
+pub const ATOMICITY_RELEASE: Ordering = Ordering::Release;
 
 #[inline(always)]
 pub const fn bitmask_lock(id: usize) -> usize {
@@ -81,12 +81,12 @@ pub fn atomic_writer_free(lock: Lock) -> bool {
 
 #[inline(always)]
 pub fn atomic_writer_lock(lock: Lock) -> (usize, bool, bool) {
-    let prev_state = lock.compare_and_swap(0, bitmask_lock(ARCH.reader_cnt), Ordering::Acquire);
-    if prev_state == 0 {
-        (0, true, false)
-    } else {
-        (prev_state, false, true)
-    }
+    let prev_state = lock.fetch_or(bitmask_lock(ARCH.reader_cnt) | ARCH.reader_lock_mask, ATOMICITY_LOCK);
+    let owned = prev_state & bitmask_lock(ARCH.reader_cnt) == 0;
+    let block = prev_state & ARCH.reader_lock_mask != 0;
+    
+    // returns readers which must be later unlocked
+    ((!prev_state) & ARCH.reader_lock_mask, owned, block)
 }
 
 #[inline(always)]

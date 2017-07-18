@@ -116,7 +116,7 @@ impl<T> RwLock<T>
                 for w in write {
                     let (_, owned, block) = atomic_writer_lock(&w.lock);
                     if block {
-//                        atomic_writer_unlock(&w.lock);
+                        //                        atomic_writer_unlock(&w.lock);
                         continue 'root;
                     } else if !owned {
                         continue 'root
@@ -151,13 +151,9 @@ impl<T: ? Sized> RwLock<T>
         // TODO: check if idx is < ARCH.reader_cnt
         
         'root: loop {
-            let (_, owned, block) = atomic_reader_lock(&self.lock, idx);
-            if owned && !block {
-                cpu_relax();
+            let (_, owned, _) = atomic_reader_lock(&self.lock, idx);
+            if owned {
                 break
-            } else if owned {
-                atomic_reader_unlock(&self.lock, idx);
-                cpu_relax();
             } else {
                 cpu_relax();
             }
@@ -171,16 +167,31 @@ impl<T: ? Sized> RwLock<T>
         let idx = ARCH.reader_cnt;
         
         'root: loop {
-            let (_, owned, block) = atomic_writer_lock(&self.lock);
+            let (mut readers_mask, owned, block) = atomic_writer_lock(&self.lock);
             
-            if owned && !block {
-                break;
+            if owned {
+                if readers_mask == ARCH.reader_lock_mask {
+                    return ARCH.reader_lock_mask | bitmask_lock(idx);
+                }
+                
+                // "CHOKE READERS"
+                while {
+                    let (new_readers_mask, _, _) = atomic_writer_lock(&self.lock);
+                    readers_mask = readers_mask | new_readers_mask;
+                    readers_mask != ARCH.reader_lock_mask
+                } {
+                    cpu_relax();
+                }
+                return ARCH.reader_lock_mask | bitmask_lock(idx);
             } else {
+                if readers_mask != 0 {
+                    self.lock.fetch_xor(readers_mask, ATOMICITY_LOCK);
+                }
                 cpu_relax();
             }
         }
-        
-        idx
+    
+        ARCH.reader_lock_mask
     }
     
     fn obtained_read(&self, idx: usize) -> ReadLockGuard<T> {
@@ -246,7 +257,11 @@ macro_rules! define_drop_for {
             /// Can we, when the initialisation is being done
             fn drop(&mut self)
             {
-                atomic_unlock(self.lock, self.idx);
+                if self.idx > ARCH.reader_cnt {
+                    self.lock.fetch_xor(self.idx, ATOMICITY_RELEASE);
+                } else {
+                    atomic_unlock(self.lock, self.idx);
+                }
             }
         }
     )
