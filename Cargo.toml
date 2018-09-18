@@ -5,7 +5,10 @@ authors = ["Andrey Cizov <acizov@gmail.com>"]
 
 [dependencies]
 rand="0.3.0"
-spin="0.4.0"
+
+[dependencies.spin]
+branch = "spin_0.4.8"
+git = "https://github.com/NoXF/spin-rs"
 
 [features]
 asm = []
